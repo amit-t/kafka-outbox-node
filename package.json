@@ -35,7 +35,8 @@
     "@aws-sdk/client-dynamodb": "^3.445.0",
     "@aws-sdk/lib-dynamodb": "^3.445.0",
     "mongodb": "^6.0.0",
-    "redis": "^4.6.7"
+    "redis": "^4.6.7",
+    "pino": "^8.15.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

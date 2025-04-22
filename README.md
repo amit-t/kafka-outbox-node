@@ -8,12 +8,13 @@ A Node.js library implementing the Kafka Outbox pattern for reliable event publi
 ## Features
 
 - **At-least-once delivery**: Ensures that published events are always delivered to Kafka, even if the application crashes.
-- **Multiple storage adapters**: Support for PostgreSQL, MySQL, DynamoDB, and in-memory storage.
+- **Multiple storage adapters**: Support for PostgreSQL, MySQL, MongoDB, Redis, DynamoDB, and in-memory storage.
 - **Configurable polling**: Automatic background polling to publish events.
 - **TypeScript support**: First-class TypeScript support with type definitions.
 - **Secure**: Supports authentication and SSL for Kafka connection.
 - **Batching**: Efficiently publishes events in batches by topic.
 - **Topic routing**: Route events to different topics.
+- **Customizable logging**: Use the built-in Pino logger or integrate with your existing logging infrastructure.
 
 ## Installation
 
@@ -54,6 +55,31 @@ outbox.startPolling();
 await outbox.disconnect();
 ```
 
+### Usage Examples
+
+```ts
+// With default Pino logger
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage: new PostgresOutboxStorage({ /* config */ }),
+});
+
+// With custom logger
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage: new PostgresOutboxStorage({ /* config */ }),
+  logger: myCustomLogger // Any logger with trace, debug, info, warn, error methods
+});
+
+// With detailed debug logging
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage: new PostgresOutboxStorage({ /* config */ }),
+  logger: { level: 'debug', prettyPrint: true }
+});
+
+```
+
 ## Storage Adapters
 
 ### PostgreSQL
@@ -86,6 +112,41 @@ const storage = new MySQLOutboxStorage({
   database: 'outbox',
   user: 'root',
   password: 'password',
+});
+
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+});
+```
+
+### MongoDB
+
+```ts
+import { KafkaOutbox, MongoDBOutboxStorage } from 'kafka-outbox-node';
+
+const storage = new MongoDBOutboxStorage({
+  connectionString: 'mongodb://localhost:27017/outbox',
+});
+
+// Initialize the collection with proper indexes if needed
+await storage.initialize();
+
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+});
+```
+
+### Redis
+
+```ts
+import { KafkaOutbox, RedisOutboxStorage } from 'kafka-outbox-node';
+
+const storage = new RedisOutboxStorage({
+  host: 'localhost',
+  port: 6379,
+  keyPrefix: 'outbox:', // Optional
 });
 
 const outbox = new KafkaOutbox({
@@ -147,6 +208,7 @@ interface KafkaOutboxConfig {
     authenticationTimeout?: number;   // Authentication timeout in ms
     reauthenticationThreshold?: number; // Reauthentication threshold in ms
   };
+  logger?: Logger | LoggerOptions | false; // Customizable logging options
 }
 ```
 
@@ -170,6 +232,44 @@ interface OutboxStorage {
   getUnpublishedEvents(): Promise<OutboxEvent[]>;
   close?(): Promise<void>;
 }
+```
+
+## Logging Configuration
+
+The library comes with built-in logging using [Pino](https://github.com/pinojs/pino), but can be configured to work with your existing logging infrastructure:
+
+```ts
+// 1. Use the default Pino logger (info level)
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+  // No logger config = default Pino logger with info level
+});
+
+// 2. Customize the built-in Pino logger
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+  logger: {
+    level: 'debug',        // One of: trace, debug, info, warn, error, fatal
+    name: 'my-service',    // Logger name for identification
+    prettyPrint: true      // Pretty print for development
+  }
+});
+
+// 3. Use your own logger (Winston, Bunyan, etc.)
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+  logger: myCustomLogger   // Must implement trace, debug, info, warn, error methods
+});
+
+// 4. Disable logging completely
+const outbox = new KafkaOutbox({
+  kafkaBrokers: ['localhost:9092'],
+  storage,
+  logger: false
+});
 ```
 
 ## Advanced Usage
