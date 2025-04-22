@@ -53,6 +53,5 @@ tests
 !.env.example
 
 # Ignore ai
-ai
 yarn.lock
 yarn-error.log

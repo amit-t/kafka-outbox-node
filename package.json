@@ -1,0 +1,47 @@
+{
+  "name": "kafka-outbox-node",
+  "version": "0.1.0",
+  "description": "A Node.js library implementing the Kafka Outbox pattern.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "test": "vitest run",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amit-t/kafka-outbox-node.git"
+  },
+  "keywords": [
+    "kafka",
+    "outbox",
+    "nodejs",
+    "event-driven",
+    "microservices"
+  ],
+  "author": "Amit Tiwari",
+  "license": "MIT",
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.9",
+    "eslint": "^8.0.0",
+    "husky": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

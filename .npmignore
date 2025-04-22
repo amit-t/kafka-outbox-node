@@ -1,0 +1,8 @@
+src/
+test/
+*.md
+.git
+.gitignore
+node_modules/
+*.log
+husky/
