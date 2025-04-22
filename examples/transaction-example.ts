@@ -7,8 +7,11 @@
  * 3. Handle failures gracefully
  */
 import { Pool } from 'pg';
-import { KafkaOutbox } from '../src';
+import { KafkaOutbox, createDefaultLogger } from '../src';
 import { PostgresOutboxStorage } from '../src/storage/postgres';
+
+// Create a logger
+const logger = createDefaultLogger();
 
 // Create a PostgreSQL client
 const pool = new Pool({
@@ -61,14 +64,21 @@ async function createOrderWithEvent() {
     
     // 2. Create an event in the outbox table in the SAME transaction
     const storage = new PostgresOutboxStorage({
-      // Use the same client that's managing the transaction
-      client, // <-- This is the important part - sharing the transaction
-    });
+      host: 'localhost',
+      port: 5432,
+      database: 'outbox',
+      user: 'postgres',
+      password: 'postgres',
+      // The client is passed as a custom property for transaction support
+      // This is not part of the standard config but handled internally
+      client: client,
+    } as any);
     
     const outbox = new KafkaOutbox({
       kafkaBrokers: ['localhost:29092'],
       defaultTopic: 'order-events',
       storage,
+      logger, // Use our configured logger
     });
     
     // Add event to outbox (this uses the same transaction)
@@ -83,13 +93,14 @@ async function createOrderWithEvent() {
     // 3. Commit the transaction (both order and event are committed together)
     await client.query('COMMIT');
     
-    console.log(`Order ${orderId} created successfully with outbox event`);
+    logger.info(`Order ${orderId} created successfully with outbox event`);
     
     // Connect to Kafka to publish the event 
     // (this happens outside the transaction)
     const kafkaOutbox = new KafkaOutbox({
       kafkaBrokers: ['localhost:29092'],
       defaultTopic: 'order-events',
+      clientId: 'order-service',
       storage: new PostgresOutboxStorage({
         host: 'localhost',
         port: 5432,
@@ -97,6 +108,8 @@ async function createOrderWithEvent() {
         user: 'postgres',
         password: 'postgres',
       }),
+      pollInterval: 2000, // Poll every 2 seconds
+      logger, // Use our configured logger
     });
     
     await kafkaOutbox.connect();
@@ -104,7 +117,7 @@ async function createOrderWithEvent() {
     try {
       // Publish any unpublished events 
       const count = await kafkaOutbox.publishEvents();
-      console.log(`Published ${count} events to Kafka`);
+      logger.info(`Published ${count} events to Kafka`);
     } finally {
       await kafkaOutbox.disconnect();
     }
@@ -112,7 +125,7 @@ async function createOrderWithEvent() {
   } catch (error) {
     // If anything fails, roll back the entire transaction
     await client.query('ROLLBACK');
-    console.error('Error creating order:', error);
+    logger.error(`Error creating order: ${error}`);
     throw error;
   } finally {
     // Release the client back to the pool
@@ -148,7 +161,7 @@ async function initializeDatabase() {
       )
     `);
     
-    console.log('Database initialized successfully');
+    logger.info('Database initialized successfully');
   } finally {
     client.release();
   }
@@ -160,7 +173,7 @@ async function run() {
     await initializeDatabase();
     await createOrderWithEvent();
   } catch (error) {
-    console.error('Example failed:', error);
+    logger.error(`Example failed: ${error}`);
   } finally {
     // Close the pool
     await pool.end();

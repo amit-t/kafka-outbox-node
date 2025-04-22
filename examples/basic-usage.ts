@@ -1,35 +1,32 @@
-import { KafkaOutbox } from '../src';
-import { PostgresOutboxStorage } from '../src/storage/postgres';
+import { KafkaOutbox, createDefaultLogger } from '../src';
+import { InMemoryOutboxStorage } from '../src/storage/memory';
 
 async function run() {
-  console.log('Starting Kafka Outbox example...');
-  
-  // Create a Postgres storage instance
-  const storage = new PostgresOutboxStorage({
-    host: 'localhost',
-    port: 5432,
-    database: 'outbox',
-    user: 'postgres',
-    password: 'postgres',
+  // Create a logger with pretty printing for the example
+  const logger = createDefaultLogger({
+    level: 'debug',
+    name: 'kafka-outbox-example'
   });
   
-  // Create the outbox with the Postgres storage
+  logger.info('Starting Kafka Outbox example...');
+  
+  // Create the outbox with the InMemory storage
   const outbox = new KafkaOutbox({
-    kafkaBrokers: ['localhost:29092'],
-    defaultTopic: 'outbox-events',
-    clientId: 'example-app',
-    storage,
+    kafkaBrokers: ['localhost:9092'],
+    clientId: 'outbox-example',
+    storage: new InMemoryOutboxStorage(),
     pollInterval: 2000, // Poll every 2 seconds
+    logger // Pass the logger to the outbox
   });
   
   try {
     // Connect to Kafka
-    console.log('Connecting to Kafka...');
+    logger.info('Connecting to Kafka...');
     await outbox.connect();
-    console.log('Connected to Kafka successfully');
+    logger.info('Connected to Kafka successfully');
     
     // Add some events to the outbox
-    console.log('Adding events to outbox...');
+    logger.info('Adding events to outbox...');
     await outbox.addEvent({ message: 'Hello, world!', timestamp: new Date().toISOString() });
     await outbox.addEvent({ message: 'Another event', data: { foo: 'bar' } });
     
@@ -39,30 +36,30 @@ async function run() {
       'high-priority-events'
     );
     
-    console.log('Events added to outbox successfully');
+    logger.info('Events added to outbox successfully');
     
     // Publish events manually
-    console.log('Publishing events...');
+    logger.info('Publishing events...');
     const count = await outbox.publishEvents();
-    console.log(`Published ${count} events`);
+    logger.info(`Published ${count} events`);
     
     // Start polling (will continue to check for unpublished events)
-    console.log('Starting polling for events...');
+    logger.info('Starting polling for events...');
     outbox.startPolling();
     
     // Keep the process running to demonstrate polling
-    console.log('Polling for events. Press Ctrl+C to stop...');
+    logger.info('Polling for events. Press Ctrl+C to stop...');
     
     // Handle shutdown
     process.on('SIGINT', async () => {
-      console.log('Shutting down...');
+      logger.info('Shutting down...');
       outbox.stopPolling();
       await outbox.disconnect();
       process.exit(0);
     });
     
   } catch (error) {
-    console.error('Error in example:', error);
+    logger.error(`Error in example: ${error}`);
     await outbox.disconnect();
     process.exit(1);
   }

@@ -8,6 +8,7 @@ import {
   ListTablesCommandOutput 
 } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { logInfo, logSuccess, logError } from '../../logger';
 
 interface DynamoDBConfig {
   region: string;
@@ -47,7 +48,7 @@ async function initializeDynamoDB(): Promise<void> {
     const { TableNames }: ListTablesCommandOutput = await client.send(new ListTablesCommand({}));
     
     if (TableNames?.includes(config.tableName)) {
-      console.log(`Table '${config.tableName}' already exists.`);
+      logInfo(`Table '${config.tableName}' already exists.`);
       return;
     }
     
@@ -85,15 +86,15 @@ async function initializeDynamoDB(): Promise<void> {
     };
     
     await client.send(new CreateTableCommand(createTableParams));
-    console.log(`Table '${config.tableName}' created successfully.`);
+    logSuccess(`Table '${config.tableName}' created successfully.`);
     
   } catch (error) {
-    console.error('Error initializing DynamoDB:', error);
+    logError('Error initializing DynamoDB:', error);
   }
 }
 
 // Run the initialization function
 initializeDynamoDB().catch(error => {
-  console.error('Failed to initialize DynamoDB:', error);
+  logError('Failed to initialize DynamoDB:', error);
   process.exit(1);
 });

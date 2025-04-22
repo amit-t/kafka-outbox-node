@@ -1,6 +1,9 @@
 // Redis initialization script for Kafka Outbox Pattern
 
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
+import { logInfo, logSuccess, logError } from '../../logger';
+
+const KEY_PREFIX = 'outbox:';
 
 interface RedisConfig {
   host: string;
@@ -10,26 +13,21 @@ interface RedisConfig {
 }
 
 async function initializeRedis(): Promise<void> {
-  // Configuration - replace with your Redis connection details
+  // Configuration
   const config: RedisConfig = {
     host: 'localhost',
     port: 6379,
-    // password is optional, set it if required
-    keyPrefix: 'outbox:'
+    keyPrefix: KEY_PREFIX
   };
 
-  // Connect to Redis
-  const client: RedisClientType = createClient({
-    socket: {
-      host: config.host,
-      port: config.port
-    },
-    password: config.password
+  // Create Redis client
+  const client = createClient({
+    url: `redis://${config.host}:${config.port}`,
   });
 
   try {
     await client.connect();
-    console.log('Connected to Redis');
+    logInfo('Connected to Redis');
 
     // Clear any existing outbox keys if needed
     // Uncomment if you want to clean up during initialization
@@ -37,7 +35,7 @@ async function initializeRedis(): Promise<void> {
     const keys = await client.keys(`${config.keyPrefix}*`);
     if (keys.length > 0) {
       await client.del(keys);
-      console.log(`Deleted ${keys.length} existing keys`);
+      logInfo(`Deleted ${keys.length} existing keys`);
     }
     */
 
@@ -54,22 +52,22 @@ async function initializeRedis(): Promise<void> {
         value: 'initialization-placeholder'
       });
       await client.zRem(unpublishedSetKey, 'initialization-placeholder');
-      console.log('Created unpublished events sorted set');
+      logSuccess('Created unpublished events sorted set');
     } else {
-      console.log('Unpublished events sorted set already exists');
+      logInfo('Unpublished events sorted set already exists');
     }
 
-    console.log('Redis initialization complete');
+    logSuccess('Redis initialization complete');
   } catch (error) {
-    console.error('Error initializing Redis:', error);
+    logError('Error initializing Redis:', error);
   } finally {
     await client.quit();
-    console.log('Redis connection closed');
+    logInfo('Redis connection closed');
   }
 }
 
 // Run the initialization function
 initializeRedis().catch(error => {
-  console.error('Failed to initialize Redis:', error);
+  logError('Failed to initialize Redis:', error);
   process.exit(1);
 });

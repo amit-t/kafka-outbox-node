@@ -1,6 +1,7 @@
 // MongoDB initialization script for Kafka Outbox Pattern
 
 import { MongoClient } from 'mongodb';
+import { logInfo, logSuccess, logError } from '../../logger';
 
 async function initializeMongoDB(): Promise<void> {
   // Configuration
@@ -14,7 +15,7 @@ async function initializeMongoDB(): Promise<void> {
 
   try {
     await client.connect();
-    console.log('Connected to MongoDB');
+    logInfo('Connected to MongoDB');
 
     // Get database
     const db = client.db(config.databaseName);
@@ -26,37 +27,37 @@ async function initializeMongoDB(): Promise<void> {
     // Create outbox_events collection if it doesn't exist
     if (!collectionNames.includes('outbox_events')) {
       await db.createCollection('outbox_events');
-      console.log('Created outbox_events collection');
+      logSuccess('Created outbox_events collection');
     }
 
     // Create indexes for efficient querying
     await db.collection('outbox_events').createIndex({ "published": 1 });
     await db.collection('outbox_events').createIndex({ "createdAt": 1 });
     await db.collection('outbox_events').createIndex({ "published": 1, "createdAt": 1 });
-    console.log('Created indexes on outbox_events collection');
+    logSuccess('Created indexes on outbox_events collection');
 
     // Create orders collection for transaction examples
     if (!collectionNames.includes('orders')) {
       await db.createCollection('orders');
-      console.log('Created orders collection');
+      logSuccess('Created orders collection');
     }
 
     // Create indexes for orders collection
     await db.collection('orders').createIndex({ "customerId": 1 });
     await db.collection('orders').createIndex({ "createdAt": 1 });
-    console.log('Created indexes on orders collection');
+    logSuccess('Created indexes on orders collection');
 
-    console.log('MongoDB initialization complete');
+    logSuccess('MongoDB initialization complete');
   } catch (error) {
-    console.error('Error initializing MongoDB:', error);
+    logError('Error initializing MongoDB:', error);
   } finally {
     await client.close();
-    console.log('MongoDB connection closed');
+    logInfo('MongoDB connection closed');
   }
 }
 
 // Run the initialization function
 initializeMongoDB().catch(error => {
-  console.error('Failed to initialize MongoDB:', error);
+  logError('Failed to initialize MongoDB:', error);
   process.exit(1);
 });

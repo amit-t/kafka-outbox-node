@@ -13,6 +13,7 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import chalk from 'chalk';
+import { scriptLogger, logInfo, logSuccess, logError, logWarning } from './logger';
 
 // Promisify exec
 const execAsync = promisify(exec);
@@ -37,10 +38,10 @@ interface DatabaseConnectionOptions {
 // Helper function to run TypeScript files with tsx
 async function runTypescriptFile(filePath: string): Promise<void> {
   try {
-    console.log(chalk.blue(`Running TypeScript file: ${filePath}`));
+    logInfo(`Running TypeScript file: ${filePath}`);
     await execAsync(`pnpm tsx ${filePath}`);
   } catch (error) {
-    console.error(chalk.red(`Error running TypeScript file: ${error}`));
+    logError(`Error running TypeScript file:`, error);
     throw error;
   }
 }
@@ -52,7 +53,7 @@ async function runSqlFile(
   options: DatabaseConnectionOptions
 ): Promise<void> {
   try {
-    console.log(chalk.blue(`Running SQL file: ${filePath}`));
+    logInfo(`Running SQL file: ${filePath}`);
     
     let command = '';
     if (dbType === 'postgres') {
@@ -75,7 +76,7 @@ async function runSqlFile(
     
     await execAsync(command);
   } catch (error) {
-    console.error(chalk.red(`Error running SQL file: ${error}`));
+    logError(`Error running SQL file:`, error);
     throw error;
   }
 }
@@ -93,7 +94,7 @@ async function initializeDatabase(
       throw new Error(`No initialization scripts found for database type: ${dbType}`);
     }
     
-    console.log(chalk.green(`Initializing ${dbType} database...`));
+    logInfo(`Initializing ${dbType} database...`);
     
     // Run the appropriate initialization script based on database type
     switch (dbType) {
@@ -122,9 +123,9 @@ async function initializeDatabase(
         throw new Error(`Unsupported database type: ${dbType}`);
     }
     
-    console.log(chalk.green(`${dbType} database initialized successfully`));
+    logSuccess(`${dbType} database initialized successfully`);
   } catch (error) {
-    console.error(chalk.red(`Failed to initialize ${dbType} database: ${error}`));
+    logError(`Failed to initialize ${dbType} database:`, error);
     process.exit(1);
   }
 }
