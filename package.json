@@ -30,14 +30,22 @@
   "license": "MIT",
   "dependencies": {
     "kafkajs": "^2.2.4",
-    "pg": "^8.11.0"
+    "pg": "^8.11.0",
+    "mysql2": "^3.6.0",
+    "@aws-sdk/client-dynamodb": "^3.445.0",
+    "@aws-sdk/lib-dynamodb": "^3.445.0",
+    "mongodb": "^6.0.0",
+    "redis": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/pg": "^8.10.9",
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
     "eslint": "^8.0.0",
-    "husky": "^8.0.0",
+    "husky": "^8.0.3",
     "prettier": "^3.0.0",
+    "tsx": "^4.6.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
   },

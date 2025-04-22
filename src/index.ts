@@ -4,6 +4,17 @@ export interface KafkaOutboxConfig {
   clientId?: string;
   storage: OutboxStorage;
   pollInterval?: number; // in ms
+  kafkaOptions?: {
+    ssl?: boolean;
+    sasl?: {
+      mechanism: 'plain' | 'scram-sha-256' | 'scram-sha-512';
+      username: string;
+      password: string;
+    };
+    connectionTimeout?: number;
+    authenticationTimeout?: number;
+    reauthenticationThreshold?: number;
+  };
 }
 
 export interface OutboxEvent {
