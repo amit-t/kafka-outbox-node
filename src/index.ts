@@ -3,6 +3,9 @@ import { Logger, LoggerOptions, createDefaultLogger, nullLogger } from './logger
 // Re-export logger types and utilities for library users
 export { Logger, LoggerOptions, createDefaultLogger, nullLogger } from './logger';
 
+// Export Debezium CDC connector
+export { DebeziumConnector, DebeziumConfig, OutboxRouterOptions, EventTransformer } from './debezium';
+
 /**
  * Configuration options for the KafkaOutbox class.
  *

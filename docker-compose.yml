@@ -34,12 +34,21 @@ services:
       - kafka-data:/var/lib/kafka/data
 
   postgres:
-    image: postgres:15-alpine
+    image: debezium/postgres:15
     container_name: kon-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: outbox
+      # These settings enable logical replication for Debezium CDC
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command: [
+      "postgres", 
+      "-c", "wal_level=logical", 
+      "-c", "max_wal_senders=10", 
+      "-c", "max_replication_slots=10",
+      "-c", "max_connections=200"
+    ]
     ports:
       - "5432:5432"
     volumes:
@@ -47,17 +56,59 @@ services:
       # Initialize database with outbox table schema
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
 
+  # Kafka Connect with Debezium connectors pre-installed
+  kafka-connect:
+    image: debezium/connect:2.4
+    container_name: kon-kafka-connect
+    depends_on:
+      - kon-kafka
+      - postgres
+    ports:
+      - "8083:8083"
+    environment:
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+      BOOTSTRAP_SERVERS: kon-kafka:9092
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Debezium UI for managing connectors
+  debezium-ui:
+    image: debezium/debezium-ui:2.4
+    container_name: kon-debezium-ui
+    depends_on:
+      - kafka-connect
+    ports:
+      - "8084:8080"
+    environment:
+      KAFKA_CONNECT_URIS: http://kafka-connect:8083
+
   kon-kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kon-kafka-ui
     depends_on:
       - kon-kafka
+      - kafka-connect
     ports:
       - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kon-kafka:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: kon-zookeeper:2181
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
 
 volumes:
   zookeeper-data:
