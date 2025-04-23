@@ -3,6 +3,18 @@ import { Logger, LoggerOptions, createDefaultLogger, nullLogger } from './logger
 // Re-export logger types and utilities for library users
 export { Logger, LoggerOptions, createDefaultLogger, nullLogger } from './logger';
 
+/**
+ * Configuration options for the KafkaOutbox class.
+ *
+ * @interface KafkaOutboxConfig
+ * @property {string[]} kafkaBrokers - Array of Kafka broker addresses (e.g., ['localhost:9092'])
+ * @property {string} [defaultTopic='outbox-events'] - Default topic if not specified when adding events
+ * @property {string} [clientId='kafka-outbox-node'] - Client ID for Kafka connection
+ * @property {OutboxStorage} storage - Storage adapter implementation for persisting events
+ * @property {number} [pollInterval=5000] - Interval in milliseconds for polling unpublished events
+ * @property {Object} [kafkaOptions] - Additional KafkaJS configuration options
+ * @property {Logger|LoggerOptions|false} [logger] - Logging configuration
+ */
 export interface KafkaOutboxConfig {
   kafkaBrokers: string[];
   defaultTopic?: string;
@@ -30,6 +42,16 @@ export interface KafkaOutboxConfig {
   logger?: Logger | LoggerOptions | false;
 }
 
+/**
+ * Represents an event stored in the outbox.
+ *
+ * @interface OutboxEvent
+ * @property {string} id - Unique identifier for the event
+ * @property {any} payload - The event payload to be sent to Kafka
+ * @property {Date} createdAt - Timestamp when the event was created
+ * @property {boolean} published - Whether the event has been successfully published to Kafka
+ * @property {string} [topic] - Optional override for the Kafka topic
+ */
 export interface OutboxEvent {
   id: string;
   payload: any;
@@ -38,15 +60,76 @@ export interface OutboxEvent {
   topic?: string; // Optional topic override
 }
 
+/**
+ * Interface for storage adapters that persist outbox events.
+ * Implementations are available for various databases (PostgreSQL, MySQL, MongoDB, Redis, DynamoDB).
+ *
+ * @interface OutboxStorage
+ */
 export interface OutboxStorage {
+  /**
+   * Saves a new event to the outbox storage.
+   * 
+   * @param {OutboxEvent} event - The event to save
+   * @returns {Promise<void>} Promise that resolves when the event is saved
+   */
   saveEvent(event: OutboxEvent): Promise<void>;
+  /**
+   * Marks an event as published after successful delivery to Kafka.
+   * 
+   * @param {string} id - The ID of the event to mark as published
+   * @returns {Promise<void>} Promise that resolves when the event is marked as published
+   */
   markPublished(id: string): Promise<void>;
+  /**
+   * Retrieves all unpublished events from the storage.
+   * 
+   * @returns {Promise<OutboxEvent[]>} Promise that resolves with an array of unpublished events
+   */
   getUnpublishedEvents(): Promise<OutboxEvent[]>;
+  /**
+   * Closes the connection to the storage (optional).
+   * 
+   * @returns {Promise<void>} Promise that resolves when the connection is closed
+   */
   close?(): Promise<void>;
 }
 
 import { Kafka, Producer } from 'kafkajs';
 
+/**
+ * Main class implementing the Kafka Outbox pattern.
+ * 
+ * The Kafka Outbox pattern ensures reliable event delivery to Kafka by first storing
+ * events in a database (outbox) and then asynchronously publishing them to Kafka.
+ * This provides at-least-once delivery guarantees and transactional consistency
+ * between database operations and event publishing.
+ *
+ * @example
+ * ```typescript
+ * // Create a storage adapter
+ * const storage = new PostgresOutboxStorage({
+ *   host: 'localhost',
+ *   port: 5432,
+ *   database: 'mydb',
+ *   user: 'postgres',
+ *   password: 'password'
+ * });
+ *
+ * // Create and configure the outbox
+ * const outbox = new KafkaOutbox({
+ *   kafkaBrokers: ['localhost:9092'],
+ *   defaultTopic: 'my-events',
+ *   storage,
+ *   logger: { level: 'debug' }
+ * });
+ *
+ * // Connect, add an event, and start polling
+ * await outbox.connect();
+ * await outbox.addEvent({ orderId: '123', status: 'created' });
+ * outbox.startPolling();
+ * ```
+ */
 export class KafkaOutbox {
   private config: KafkaOutboxConfig;
   private kafka: Kafka;
@@ -55,6 +138,11 @@ export class KafkaOutbox {
   private pollTimeoutId?: NodeJS.Timeout;
   private logger: Logger;
 
+  /**
+   * Creates a new KafkaOutbox instance.
+   * 
+   * @param {KafkaOutboxConfig} config - Configuration for the KafkaOutbox
+   */
   constructor(config: KafkaOutboxConfig) {
     this.config = {
       defaultTopic: 'outbox-events',
@@ -100,7 +188,16 @@ export class KafkaOutbox {
   }
 
   /**
-   * Connects to Kafka and initializes the producer
+   * Connects to Kafka and initializes the producer.
+   * Must be called before attempting to publish events.
+   * 
+   * @example
+   * ```typescript
+   * await outbox.connect();
+   * ```
+   * 
+   * @returns {Promise<void>} Promise that resolves when connected successfully
+   * @throws {Error} If connection to Kafka fails
    */
   async connect(): Promise<void> {
     this.logger.debug('Connecting to Kafka...');
@@ -114,7 +211,25 @@ export class KafkaOutbox {
   }
 
   /**
-   * Disconnects from Kafka and stops polling
+   * Disconnects from Kafka and stops polling.
+   * Should be called when shutting down the application to clean up resources.
+   * 
+   * This method will:
+   * 1. Stop the polling mechanism if active
+   * 2. Disconnect the Kafka producer
+   * 3. Close the storage connection if supported
+   * 
+   * @example
+   * ```typescript
+   * // Graceful shutdown
+   * process.on('SIGTERM', async () => {
+   *   await outbox.disconnect();
+   *   process.exit(0);
+   * });
+   * ```
+   * 
+   * @returns {Promise<void>} Promise that resolves when disconnected successfully
+   * @throws {Error} If disconnection fails
    */
   async disconnect(): Promise<void> {
     this.logger.debug('Disconnecting from Kafka...');
@@ -137,9 +252,28 @@ export class KafkaOutbox {
   }
 
   /**
-   * Adds an event to the outbox
-   * @param payload The event payload
-   * @param topic Optional topic override
+   * Adds an event to the outbox storage.
+   * 
+   * The event is stored in the configured storage but not immediately published to Kafka.
+   * It will be published either by explicitly calling `publishEvents()` or automatically
+   * if polling is enabled with `startPolling()`.
+   * 
+   * @example
+   * ```typescript
+   * // Add event with default topic
+   * const eventId = await outbox.addEvent({ orderId: '123', status: 'created' });
+   * 
+   * // Add event with specific topic
+   * await outbox.addEvent(
+   *   { customerId: '456', action: 'registered' },
+   *   'user-events'
+   * );
+   * ```
+   * 
+   * @param {any} payload - The event payload to be sent to Kafka
+   * @param {string} [topic] - Optional topic override (uses defaultTopic from config if not specified)
+   * @returns {Promise<string>} Promise that resolves with the ID of the created event
+   * @throws {Error} If saving the event fails
    */
   async addEvent(payload: any, topic?: string): Promise<string> {
     const eventTopic = topic || this.config.defaultTopic;
@@ -167,7 +301,26 @@ export class KafkaOutbox {
   }
 
   /**
-   * Publishes all unpublished events to Kafka
+   * Publishes all unpublished events to Kafka.
+   * 
+   * This method:
+   * 1. Retrieves all unpublished events from storage
+   * 2. Groups them by topic for efficient batching
+   * 3. Sends each batch to the appropriate Kafka topic
+   * 4. Marks successfully published events as published
+   * 
+   * Events are only marked as published after successful delivery to Kafka,
+   * ensuring at-least-once delivery semantics.
+   * 
+   * @example
+   * ```typescript
+   * // Manually publish events
+   * const publishedCount = await outbox.publishEvents();
+   * console.log(`Published ${publishedCount} events`);
+   * ```
+   * 
+   * @returns {Promise<number>} Promise that resolves with the number of events published
+   * @throws {Error} If retrieving or publishing events fails
    */
   async publishEvents(): Promise<number> {
     this.logger.debug('Fetching unpublished events...');
@@ -236,7 +389,22 @@ export class KafkaOutbox {
   }
 
   /**
-   * Starts polling for unpublished events
+   * Starts polling for unpublished events.
+   * 
+   * This method initiates a background process that periodically checks for
+   * unpublished events and publishes them to Kafka. The polling interval
+   * is determined by the `pollInterval` configuration option.
+   * 
+   * Polling continues until explicitly stopped with `stopPolling()` or
+   * when the application is shut down.
+   * 
+   * @example
+   * ```typescript
+   * // Start automatic polling (runs in background)
+   * outbox.startPolling();
+   * ```
+   * 
+   * @returns {void}
    */
   startPolling(): void {
     if (this.isPolling) {
@@ -247,6 +415,10 @@ export class KafkaOutbox {
     this.logger.info(`Starting polling with interval ${this.config.pollInterval}ms`);
     this.isPolling = true;
     
+    /**
+     * Internal polling function that is called recursively.
+     * Publishes any unpublished events and schedules the next poll.
+     */
     const poll = async () => {
       if (!this.isPolling) return;
       
@@ -270,7 +442,19 @@ export class KafkaOutbox {
   }
 
   /**
-   * Stops polling for unpublished events
+   * Stops polling for unpublished events.
+   * 
+   * This method cancels the background polling process started by `startPolling()`.
+   * Any in-progress publishing operation will complete, but no new polling
+   * cycles will be scheduled.
+   * 
+   * @example
+   * ```typescript
+   * // Stop automatic polling
+   * outbox.stopPolling();
+   * ```
+   * 
+   * @returns {void}
    */
   stopPolling(): void {
     if (!this.isPolling) {
