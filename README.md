@@ -2,8 +2,11 @@
 
 A Node.js library implementing the Kafka Outbox pattern for reliable event publishing in distributed systems. This pattern ensures messages are consistently delivered to Kafka, even when the transaction and message publishing need to happen atomically.
 
-[![npm version](https://img.shields.io/npm/v/kafka-outbox-node.svg)](https://www.npmjs.com/package/kafka-outbox-node)
-[![License](https://img.shields.io/npm/l/kafka-outbox-node.svg)](https://github.com/amit-t/kafka-outbox-node/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/kafka-outbox-node.svg?style=flat-square)](https://www.npmjs.com/package/kafka-outbox-node)
+[![npm downloads](https://img.shields.io/npm/dm/kafka-outbox-node.svg?style=flat-square)](https://www.npmjs.com/package/kafka-outbox-node)
+[![License](https://img.shields.io/npm/l/kafka-outbox-node.svg?style=flat-square)](https://github.com/amit-t/kafka-outbox-node/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-14.x_|_16.x_|_18.x_|_20.x-green?style=flat-square)](https://nodejs.org/)
 
 ## Features
 
@@ -20,7 +23,11 @@ A Node.js library implementing the Kafka Outbox pattern for reliable event publi
 ## Installation
 
 ```sh
+# Latest version
 pnpm add kafka-outbox-node
+
+# Or specify version
+pnpm add kafka-outbox-node@0.1.0
 ```
 
 ## Quick Start
