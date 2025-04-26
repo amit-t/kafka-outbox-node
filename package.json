@@ -22,6 +22,7 @@
     "type": "git",
     "url": "git+https://github.com/amit-t/kafka-outbox-node.git"
   },
+  "homepage": "https://www.npmjs.com/package/kafka-outbox-node",
   "keywords": [
     "kafka",
     "outbox",
