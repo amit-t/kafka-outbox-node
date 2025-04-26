@@ -47,7 +47,8 @@ await outbox.addEvent({ message: 'Hello, world!', timestamp: new Date().toISOStr
 
 // Publish events manually
 const count = await outbox.publishEvents();
-console.log(`Published ${count} events`);
+// The outbox uses the configured logger
+// No need for console.log statements
 
 // Or start polling to publish events automatically
 outbox.startPolling();
@@ -271,6 +272,11 @@ const outbox = new KafkaOutbox({
   storage,
   logger: false
 });
+
+// 5. Access the logger from the outbox instance
+const { logger } = outbox;
+logger.info('Outbox initialized successfully');
+logger.debug({ event: myEvent }, 'Adding event to outbox');
 ```
 
 ## Debezium CDC Integration
@@ -304,7 +310,8 @@ const connector = new DebeziumConnector({
   connectorName: 'my-outbox-connector',
   kafkaBootstrapServers: 'localhost:9092',
   topicPrefix: 'app.',
-  logger: myLogger
+  // You can use the same logger instance across your application
+  logger: myLogger // Must implement trace, debug, info, warn, error methods
 }, {
   eventTypeField: 'event_type',
   payloadField: 'payload',
@@ -377,14 +384,17 @@ The Docker setup handles all the configuration needed for Debezium, including:
 ```ts
 outbox.startPolling();
 
+// The outbox instance has a logger property you can use
+const { logger } = outbox;
+
 process.on('uncaughtException', async (error) => {
-  console.error('Uncaught exception:', error);
+  logger.error({ err: error }, 'Uncaught exception');
   await outbox.disconnect();
   process.exit(1);
 });
 
 process.on('SIGINT', async () => {
-  console.log('Shutting down...');
+  logger.info('Shutting down...');
   await outbox.disconnect();
   process.exit(0);
 });

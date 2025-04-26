@@ -55,3 +55,4 @@ tests
 # Ignore ai
 yarn.lock
 yarn-error.log
+ai
