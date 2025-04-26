@@ -27,7 +27,7 @@ A Node.js library implementing the Kafka Outbox pattern for reliable event publi
 pnpm add kafka-outbox-node
 
 # Or specify version
-pnpm add kafka-outbox-node@0.1.0
+pnpm add kafka-outbox-node@0.1.1
 ```
 
 ## Quick Start

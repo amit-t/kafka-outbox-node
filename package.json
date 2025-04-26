@@ -1,6 +1,6 @@
 {
   "name": "kafka-outbox-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Node.js library implementing the Kafka Outbox pattern for reliable event publishing in distributed systems. This pattern ensures messages are consistently delivered to Kafka, even when the transaction and message publishing need to happen atomically.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
